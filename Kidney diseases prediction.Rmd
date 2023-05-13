@@ -1,0 +1,121 @@
+---
+title: "HW6"
+author: "Gideon Popoola"
+date: "`r Sys.Date()`"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+---
+## Exploratory Data Analysis
+The data given contain information about the number of people who died as a result of smoking or not. The data contain one binary predictor(smokes), age category (a categorical variable with five groups), deaths(response variable), and pyears.
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(readr)
+library(ggplot2)
+smoking <- read.csv("~/smoking.csv")
+```
+
+Figure 1 below shows the death rate (deaths/pyears) against each age category. Please note that this death rate is hypothetical. From this pseudo-death rate, it appears the death rate increases as the age category increases, but in the last age category, the death rate for non-smokers is higher than the smokers.
+
+Once again, this death rate is not super accurate and is for EDA purposes only.
+
+```{r}
+smoking$agecat = factor(smoking$agecat)
+smoking$smokes = factor(smoking$smokes, labels = c(1,0))
+
+
+ggplot(smoking, aes(x=agecat, y=deaths/pyears, color=smokes)) + scale_x_discrete(labels= c("35-44", "45-54", "55-64", "65-74", "75-84"))+ geom_point()+ggtitle("Agecat against (deaths divided by pyears)")
+```
+
+
+Figure 2 below shows the pyears of observation for each age category. From the plots, we can see that as we move from left to right along the age category, the number of pyears of observation decreases.
+
+
+```{r}
+
+ggplot(smoking, aes(x=agecat, y=pyears)) + scale_x_discrete(labels= c("35-44", "45-54", "55-64", "65-74", "75-84"))+ geom_boxplot()+ggtitle("agecat against pyears")
+
+```
+
+
+Figure 3 below shows the number of people who died from each age category, colored by whether they were smokers or not.
+
+```{r}
+ggplot(smoking, aes(x=agecat, y=deaths, color=smokes)) + scale_x_discrete(labels= c("35-44", "45-54", "55-64", "65-74", "75-84"))+ geom_point()+ggtitle("Agecat against deaths colored with whether they are smokers or not")
+
+
+```
+
+## Model Specification
+
+This data was collected in a binomial distribution that counts the number of deaths among participants in this study. Unfortunately, the numbers of deaths and non-dead were merged together, thereby losing the number of participants in the study. The pyears covariate did not give us as much information as possible. As a result, we experimented with various models, ranging from mixed-effect models to negative binomial models to poisson. We chose the poisson GLM (with log-link) model, but we are concerned about the assumption that the expected mean and variance are equal. The AICs of each model are below.
+
+Please don;t grade. The AIC of my mixed effect model was bigger than poission, can you explain why that happens.
+
+The model parameter are specified below.
+
+
+
+
+
+```{r cars}
+library(lme4)
+library(MASS)
+model1 = lmer(deaths ~ smokes + (1|agecat), data = smoking)
+model11 = lmer(deaths ~ smokes + pyears+ (1 | agecat), data = smoking)
+model2 = glmer(deaths ~ smokes +pyears+ (1|agecat), data = smoking, family = "poisson")
+#model21 = glmer(deaths ~ smokes +pyears+ (1+agecat), data = smoking, family = "poisson")
+model3 = glm(deaths ~ smokes + pyears+agecat, family = poisson(link = "log"), data = smoking)
+model31 = glm(deaths ~ smokes +agecat + offset(log(pyears)), family = "poisson", data = smoking)
+#model4 = glmer.nb(deaths~smokes+(1|agecat)+pyears, data=smoking)
+
+
+
+AIC(model1, model11, model2, model3, model31)
+```
+
+## Summary of my model
+
+Summary of my poisson model. The model predicts deaths using smokes and agecat as predictors with log (pyears) as offset. The selected model is denoted as model31
+```{r}
+summary(model31)
+
+
+```
+
+## Question 4
+
+Model interpretation
+The first column above named estimate is the coefficient values of our intercept and betas. The parameters estimated can be interpreted as follows. 
+
+exp(intercept)= effect on the mean μ, when X = 0
+exp(β) = with every unit increase in X, the predictor variable has multiplicative effect of exp(β) on the mean of Y, that is μ
+If β = 0, then exp(β) = 1, and the expected count is exp(intercept) and, Y and X are not related.
+If β > 0, then exp(β) > 1, and the expected count is exp(β) times larger than when X = 0
+If β < 0, then exp(β) < 1, and the expected count is exp(β) times smaller than when X = 0.
+
+In the summary above, we can see that all p values are less than 0.05, hence, both explanatory variables (agecat and smokes) have significant effect on deaths. 
+
+
+## making prediction
+I don't have an idea of how to about predicting for 1000 smoker, the intuition i have is to  make prediction and multiply it by 1000 but I'm not getting any tangible results. For the 95percent intervals I used se.fit but I don't understand the result.
+```{r }
+prediction1 = predict(model31, newdata = data.frame(agecat = factor(3), smokes = factor(1), pyears = log(smoking$pyears[3])), interval=c('prediction'), type="response", se.fit = T)
+
+one_thousand_smoker = as.numeric(prediction1)*1000
+one_thousand_smoker
+```
+
+
+```{r}
+prediction2 = predict(model31, newdata = data.frame(agecat = factor(3), smokes = factor(0), pyears = log( smoking$pyears[8])), type = "response", interval = c('predictions'), se.fit = T)
+prediction2= as.numeric(prediction2)*1000
+prediction2
+
+
+```
+
+
+
